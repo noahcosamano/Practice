@@ -66,8 +66,20 @@ class Packet:
         return response
     
 def main():
-    p1 = Packet("129.21.72.179","TCP",80,"S")
+    p1 = Packet("129.21.72.179", "TCP", 80, "S")
     p1.s_packet()
+    
+    p2 = Packet("129.21.72.179", "UDP", 65000)
+    p2.s_packet()
+    
+    p3 = Packet("129.21.72.179", "TCP", 445, ["S","A"])
+    p3.s_packet()
+    
+    p4 = Packet("129.21.72.179", "tcp", 45, "S")
+    p4.s_packet()
+    
+    p5 = Packet("129.21.72.179", "tcp", 50, "S")
+    p5.sr_packet()
     
 if __name__ == "__main__":
     main()
