@@ -3,7 +3,7 @@ DISCLAIMER: This program is intended for educational purposes only. It must NOT 
 for activities such as probing, flooding, scanning, or any unauthorized network access. Always use
 this tool within a controlled environment such as a private lab network or virtual environment.
 
-This program is a basic packet crafter that supports TCP and UDP protocols. It allows sending packets
+This program is a basic packet crafter that supports TCP, UDP, and ICMP protocols. It allows sending packets
 with a specified destination MAC address for Layer 2 traffic, as well as destination IPv4 addresses
 for Layer 3 traffic. It also supports crafting packets with spoofed source IPv4 addresses and source ports.
 
@@ -15,30 +15,65 @@ from scapy.all import TCP,sr1,sr,srp1,srp,send,sendp,IP,UDP,Ether,ICMP
 class Packet:
     __slots__ = ["dst_ip","dst_mac","protocol","dst_port","flags","src_port","src_ip"]
     
-    def __init__(self,dst_ip:str,protocol:str,dst_port:int,flags:str|list|None=None,
+    def __init__(self,dst_ip:str,protocol:str,dst_port:int|None=None,flags:str|list|None=None,
                  dst_mac:str|None=None,src_port:int|None=None,src_ip:str|None=None):
-        self.dst_ip = dst_ip
         self.dst_mac = dst_mac
-        self.flags = flags
-        self.src_ip = src_ip
-        self.src_port = src_port
         
         protocol = protocol.lower()
         
-        if protocol not in ("tcp","udp","icmp",None): # Raises error for incorrect protocols
-            raise ValueError("Protocol must be either 'tcp', 'udp', or 'icmp'")
-        self.protocol = protocol
-            
-        if isinstance(dst_port,int) and 1 <= dst_port <= 65_535: # TCP and UDP only have 65,535 ports, anything more than this is an error.
-            self.dst_port = dst_port
+        if flags:
+            for flag in flags:
+                if flag.lower() not in ("f","s","r","p","a","u"):
+                    raise ValueError("Invalid flag(s)")
+            self.flags = flags
         else:
-            raise ValueError("Invalid port")
+            self.flags = None
+        
+        if dst_ip is not None:
+            try:
+                _ = IP(dst=dst_ip)
+                self.dst_ip = dst_ip
+            except Exception:
+                raise ValueError("Invalid destination IP address")
+        else:
+            self.dst_ip = dst_ip
+        
+        if src_ip is not None:
+            try: 
+                _ = IP(src=src_ip)
+                self.src_ip = src_ip
+            except Exception:
+                raise ValueError("Invalid source IP address")
+        else:
+            self.src_ip = src_ip
+
+        if protocol in ("tcp","udp"):
+            self.protocol = protocol
+            if dst_port is None:
+                raise ValueError("TCP and UDP require a destination port")
+            elif isinstance(dst_port,int) and 1 <= dst_port <= 65_535: # TCP and UDP only have 65,535 ports, anything more than this is an error.
+                self.dst_port = dst_port
+            else:
+                raise ValueError("Invalid port")
+            
+        elif protocol == "icmp":
+            self.protocol = protocol
+            if flags:
+                raise ValueError("ICMP does not support flags")
+            if dst_port is not None or src_port is not None:
+                raise ValueError("ICMP does not support ports")
+            self.dst_port = dst_port
+            self.src_port = src_port
+            
+        else:
+            raise ValueError("Invalid protocol")
         
         if src_port is not None:
             if isinstance(src_port,int) and 1 <= src_port <= 65535:
                 self.src_port = src_port
             else:
                 raise ValueError("Invalid port")
+        self.src_port = src_port
             
     def create_packet(self):
         ip = IP(dst=self.dst_ip) # Sets destination IPv4 for IP layer
@@ -63,10 +98,6 @@ class Packet:
             layer4 = udp
         
         elif self.protocol == "icmp":
-            if self.flags:
-                raise ValueError("ICMP does not support flags")
-            elif self.src_port or self.dst_port:
-                raise ValueError("ICMP does not support ports")
             layer4 = ICMP()
             
         else: # Currently this program supports TCP, UDP, and ICMP
@@ -102,9 +133,14 @@ class Packet:
             
         return response
     
+    def __str__(self):
+        return(f"Destination IPv4: {self.dst_ip}\nProtocol: {self.protocol.upper()}\nDestination port: {self.dst_port}\n"
+              + f"Flags: {self.flags}\nDestination MAC address: {self.dst_mac}\nSource port: {self.src_port}\n"
+              + f"Source IPv4: {self.src_ip}")
+    
 def main():
-    p1 = Packet("129.21.108.139","ICMP",100,None,None,None,"129.21.108.254")
-    p1.s_packet()
+    pkt1 = Packet("192.168.1.1","TCP",12089,"SAP","ff:ff:ff:ff:ff",1,"192.168.1.2")
+    print(pkt1)
     
 if __name__ == "__main__":
     main()
