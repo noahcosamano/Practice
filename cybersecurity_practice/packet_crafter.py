@@ -10,10 +10,10 @@ for Layer 3 traffic. It also supports crafting packets with spoofed source IPv4 
 Author: Noah Cosamano
 """
 
-from scapy.all import TCP,sr1,sr,srp1,srp,send,sendp,IP,UDP,Ether
+from scapy.all import TCP,sr1,sr,srp1,srp,send,sendp,IP,UDP,Ether,ICMP
 
 class Packet:
-    __slots__ = ["dst_ip","dst_mac","protocol","port","flags","src_port","src_ip"]
+    __slots__ = ["dst_ip","dst_mac","protocol","dst_port","flags","src_port","src_ip"]
     
     def __init__(self,dst_ip:str,protocol:str,dst_port:int,flags:str|list|None=None,
                  dst_mac:str|None=None,src_port:int|None=None,src_ip:str|None=None):
@@ -30,7 +30,7 @@ class Packet:
         self.protocol = protocol
             
         if isinstance(dst_port,int) and 1 <= dst_port <= 65_535: # TCP and UDP only have 65,535 ports, anything more than this is an error.
-            self.port = dst_port
+            self.dst_port = dst_port
         else:
             raise ValueError("Invalid port")
         
@@ -47,7 +47,7 @@ class Packet:
             ip.src = self.src_ip
         
         if self.protocol == "tcp":
-            tcp = TCP(dport=self.port)
+            tcp = TCP(dport=self.dst_port)
             if self.src_port:
                 tcp.sport = self.src_port
             if self.flags:
@@ -57,12 +57,19 @@ class Packet:
         elif self.protocol == "udp":
             if self.flags:
                 raise ValueError("UDP does not support flags")
-            udp = UDP(dport=self.port)
+            udp = UDP(dport=self.dst_port)
             if self.src_port:
                 udp.sport = self.src_port
             layer4 = udp
+        
+        elif self.protocol == "icmp":
+            if self.flags:
+                raise ValueError("ICMP does not support flags")
+            elif self.src_port or self.dst_port:
+                raise ValueError("ICMP does not support ports")
+            layer4 = ICMP()
             
-        else: # Currently this program supports TCP and UDP with plans to add ICMP, anything else is an error
+        else: # Currently this program supports TCP, UDP, and ICMP
             raise ValueError("Unsupported protocol")
         
         pkt = ip / layer4
@@ -96,7 +103,7 @@ class Packet:
         return response
     
 def main():
-    p1 = Packet("129.21.72.179","TCP",80,"S",None,60891,"129.21.108.224")
+    p1 = Packet("129.21.108.139","ICMP",100,None,None,None,"129.21.108.254")
     p1.s_packet()
     
 if __name__ == "__main__":
